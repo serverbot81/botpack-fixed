@@ -1,92 +1,66 @@
-/**
- * @author MintDaL
- * @warn Do not edit code or edit credits
- */
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 module.exports.config = {
-  name: "info",
-  version: "1.2.6",
+  name: 'info',
+  version: '1.0.0',
   hasPermssion: 0,
-  credits: "kensu",
-  description: "info bot owner",
-  usePrefix: true,
-  commandCategory: "Dành cho người dùng",
-  hide:true,
-  usages: "",
-  cooldowns: 0,
+  credits: 'Rickciel',
+  prefix: true,
+  description: 'Display bot owner information',
+  category: 'system',
+  usages: '',
+  cooldowns: 20
 };
 
+module.exports.run = async ({ api, event }) => {
+  try {
+    const ownerInfo = {
+      name: 'Tanvir Ahmed',
+      gender: 'Male',
+      age: '18+',
+      study: '𝘋𝘪𝘱𝘭𝘰𝘮𝘢 𝘪𝘯 𝘊𝘪𝘷𝘪𝘭 𝘛𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺',
+      height: '5\'7ft',
+      home: 'Chandpur, Bangladesh',
+      status: 'single'
+    };
+//https://drive.google.com/
+    const videoUrl = 'https://drive.google.com/uc?export=download&id=1Df6isR8uHEqWi3_CfLpMFK0sbsDLKEx1'; // Replace with your Google Drive videoid link https://drive.google.com/uc?export=download&id=here put your video id
 
-module.exports.run = async function ({ api, event, args, Users, permssion, getText ,Threads}) {
-  const content = args.slice(1, args.length);
-  const { threadID, messageID, mentions } = event;
-  const { configPath } = global.client;
-  const { ADMINBOT } = global.config;
-   const { NDH } = global.config;
-  const { userName } = global.data;
-  const request = global.nodemodule["request"];
-  const fs = global.nodemodule["fs-extra"];
-  const { writeFileSync } = global.nodemodule["fs-extra"];
-  const mention = Object.keys(mentions);
-  delete require.cache[require.resolve(configPath)];
-  var config = require(configPath);
-  const listAdmin = ADMINBOT || config.ADMINBOT || [];
-  const listNDH = NDH || config.NDH ||  [];
-  {
-    const PREFIX = config.PREFIX;
-    const namebot = config.BOTNAME;
-    const { commands } = global.client;
-    const threadSetting = (await Threads.getData(String(event.threadID))).data || 
-    {};
-    const prefix = (threadSetting.hasOwnProperty("PREFIX")) ? threadSetting.PREFIX 
-    : global.config.PREFIX;
-    const dateNow = Date.now();
-    const time = process.uptime(),
-          hours = Math.floor(time / (60 * 60)),
-          minutes = Math.floor((time % (60 * 60)) / 60),
-          seconds = Math.floor(time % 60);
-    const data = [
-      "Bạn không thể tìm được lệnh admin tại 'help' của MintBot",
-      "Đừng mong chờ gì từ MintBot.",
-      "Cái đoạn này á? Của SpermBot.",
-      "Nếu muốn không lỗi lệnh thì hãy xài những lệnh có trong help vì những lệnh lỗi đã bị ẩn rồi.",
-      "Đây là một con bot được các coder của MiraiProject nhúng tay vào.",
-      "Muốn biết sinh nhật của Mint thì hãy xài 'birthday'.",
-      "Cặc.",
-      "Cút.",
-      "Lồn.",
-      "Bạn chưa biết.",
-      "Bạn đã biết.",
-      "Bạn sẽ biết.",
-      "Không có gì là hoàn hảo, MintBot là ví dụ.",
-      "Mirai dropped.",
-      "MintBot là MiraiProject nhưng module là idea của SpermBot.",
-      "Bạn không biết cách sử dụng MintBot? Đừng dùng nữa.",
-      "Muốn chơi game? Qua bot khác mà chơi đây không rảnh",
-      "MintBot có thể hiểu phụ nữ nhưng không thể có được họ.",
-      "MintBot cân spam nhưng không có gì đáng để bạn spam."
-    ];
-    var link = ["https://i.postimg.cc/h4yLDcZ7/New-Project-1165-B853-C36.png"];
+    const tmpFolderPath = path.join(__dirname, 'tmp');
 
-    var i = 1;
-    var msg = [];
-    const moment = require("moment-timezone");
-    const date = moment.tz("Asia/Ho_Chi_minh").format("HH:MM:ss L");
-    for (const idAdmin of listAdmin) {
-      if (parseInt(idAdmin)) {
-        const name = await Users.getNameUser(idAdmin);
-        msg.push(`${i++}/ ${name} - ${idAdmin}`);
-      }
+    if (!fs.existsSync(tmpFolderPath)) {
+      fs.mkdirSync(tmpFolderPath);
     }
-    var msg1 = [];
-            for (const idNDH of listNDH) {
-                if (parseInt(idNDH)) {
-                  const name1 = (await Users.getData(idNDH)).name
-                    msg1.push(`${i++}/ ${name1} - ${idNDH}`);
-                }
-            }
-    var callback = () => 
-      api.sendMessage({ body: `====「 ${namebot} 」====\n» Prefix system: ${PREFIX}\n» Prefix box: ${prefix}\n» Modules: ${commands.size}\n» Ping: ${Date.now() - dateNow}ms\n──────────────\n======「 ADMIN 」 ======\n${msg.join("\n")}\n──────────────\nBot has been working for ${hours} hour(s) ${minutes} minute(s) ${seconds} second(s)\n\n» Total users: ${global.data.allUserID.length} \n» Total threads: ${global.data.allThreadID.length}\n──────────────\n[thanks for using bot!!]`, attachment: fs.createReadStream(__dirname + "/cache/kensu.jpg"), }, event.threadID, () => fs.unlinkSync(__dirname + "/cache/kensu.jpg"));
-      return request(encodeURI(link[Math.floor(Math.random() * link.length)])).pipe(fs.createWriteStream(__dirname + "/cache/kensu.jpg")).on("close", () => callback()); 
+
+    const videoResponse = await axios.get(videoUrl, { responseType: 'arraybuffer' });
+    const videoPath = path.join(tmpFolderPath, 'owner_video.mp4');
+
+    fs.writeFileSync(videoPath, Buffer.from(videoResponse.data, 'binary'));
+//  𝘊𝘪𝘷𝘪𝘭 𝘛𝘦𝘤𝘩𝘯𝘰𝘭𝘰𝘨𝘺 𝘢𝘵 𝘓𝘢𝘬𝘴𝘮𝘪𝘱𝘶𝘳 𝘗𝘰𝘭𝘺𝘵𝘦𝘤𝘩𝘯𝘪𝘤 𝘐𝘯𝘴𝘵𝘪𝘵𝘶𝘵𝘦
+    const response = `
+𝘛𝘩𝘪𝘴 𝘉𝘰𝘵 𝘖𝘸𝘯𝘦𝘳 𝘐𝘯𝘧𝘰\n\n
+[🤍] 𝘕𝘢𝘮𝘦: ${ownerInfo.name}
+[🤍] 𝘏𝘰𝘮𝘦: ${ownerInfo.home}
+[🤍] 𝘚𝘵𝘶𝘥𝘺: \n${ownerInfo.study}\n(𝘓𝘢𝘬𝘴𝘮𝘪𝘱𝘶𝘳_𝘗𝘰𝘭𝘺𝘵𝘦𝘤𝘩𝘯𝘪𝘤_𝘐𝘯𝘴𝘵𝘪𝘵𝘶𝘵𝘦)
+[🤍] 𝘎𝘦𝘯𝘥𝘦𝘳 : ${ownerInfo.gender}
+[🤍] 𝘈𝘨𝘦: ${ownerInfo.age}
+[🤍] 𝘏𝘦𝘪𝘨𝘩𝘵: ${ownerInfo.height}
+[🤍] 𝘴𝘵𝘢𝘵𝘶𝘴: ${ownerInfo.status} \n\n𝘛𝘩𝘢𝘯𝘬𝘴 𝘧𝘰𝘳 𝘶𝘴𝘪𝘯𝘨 𝘛𝘢𝘯𝘷𝘪𝘳𝘉𝘰𝘵
+`;
+
+
+    await api.sendMessage({
+      body: response,
+      attachment: fs.createReadStream(videoPath)
+    }, event.threadID, event.messageID);
+
+    if (event.body.toLowerCase().includes('ownerinfo')) {
+      api.setMessageReaction('🥵', event.messageID, (err) => {}, true);
+    }
+  } catch (error) {
+    console.error('Error in ownerinfo command:', error);
+    return api.sendMessage('An error occurred while processing the command.', event.threadID);
   }
 };

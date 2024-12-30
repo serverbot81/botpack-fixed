@@ -1,84 +1,53 @@
-const axios = require('axios');
-const cron = require('node-cron');
-const fs = require('fs');
-const path = require('path');
-
-const databasePath = path.join(__dirname, 'cache', 'weatherDatabase.json');
-
-function ensureDatabase() {
-    const cacheDir = path.dirname(databasePath);
-    if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-    }
-    if (!fs.existsSync(databasePath)) {
-        fs.writeFileSync(databasePath, JSON.stringify({}), 'utf8');
-    }
-}
-
-function loadDatabase() {
-    ensureDatabase();
-    return JSON.parse(fs.readFileSync(databasePath, 'utf8'));
-}
-
-function saveDatabase(data) {
-    ensureDatabase();
-    fs.writeFileSync(databasePath, JSON.stringify(data, null, 2), 'utf8');
-}
-
 module.exports.config = {
-    name: "weather",
-    version: "1.0.0",
-    hasPermission: 0,
-    description: "Get weather information and manage notifications",
-    usePrefix: true,
-    credits: "Jonell Magallanes",
-    cooldowns: 6,
-    commandCategory: "Weather",
+	name: "weather",
+	version: "1.0.1",
+	permission: 0,
+	credits: "ryuko",
+  prefix: false,
+  premium: false,
+	description: "see weather information in the area",
+	category: "without prefix",
+	usages: "[location]",
+	cooldowns: 5,
+	dependencies: {
+		"moment-timezone": "",
+		"request": ""
+	},
+	envConfig: {
+		"OPEN_WEATHER": "b7f1db5959a1f5b2a079912b03f0cd96"
+	}
 };
 
-module.exports.run = async function ({ api, event, args }) {
-    const db = loadDatabase();
-    const threadID = event.threadID;
-    const command = args[0];
-    const status = args[1];
+module.exports.languages = {
 
-    if (command === 'weather') {
-        if (status === 'on') {
-            db[threadID] = { enabled: true };
-            saveDatabase(db);
-            return api.sendMessage(`Thread ${threadID} notifications are now ON`, threadID);
-        } else if (status === 'off') {
-            db[threadID] = { enabled: false };
-            saveDatabase(db);
-            return api.sendMessage(`Thread ${threadID} notifications are now OFF`, threadID);
-        }
-    }
+	"en": {
+		"locationNotExist": "can't find %1.",
+		"returnResult": "temp : %1℃\nfeels like : %2℃\nsky : %3\nhumidity : %4%\nwind speed : %5km/h\nsun rises : %6\nsun sets : %7"
+	}
+}
 
-    if (command === 'status') {
-        const enabled = db[threadID] && db[threadID].enabled;
-        return api.sendMessage(`Status Alert Notification Weather: This Thread is ${enabled ? 'ON' : 'OFF'}`, threadID);
-    }
-};
-
-cron.schedule('* * * * *', async () => {
-    const db = loadDatabase();
-    for (const [threadID, settings] of Object.entries(db)) {
-        if (settings.enabled) {
-            try {
-                const response = await axios.get('https://ccexplorerapisjonell.vercel.app/api/weather');
-                const data = response.data;
-                const weatherInfo = `
-                    ${data.synopsis}\n
-                    Issued at: ${data.issuedAt}\n
-                    Max Temperature: ${data.temperature.max.value} at ${data.temperature.max.time}\n
-                    Min Temperature: ${data.temperature.min.value} at ${data.temperature.min.time}\n
-                    Max Humidity: ${data.humidity.max.value} at ${data.humidity.max.time}\n
-                    Min Humidity: ${data.humidity.min.value} at ${data.humidity.min.time}
-                `;
-                await api.sendMessage(weatherInfo, threadID);
-            } catch (error) {
-                await api.sendMessage(`Error fetching weather data: ${error.response ? error.response.status : error.message}`, threadID);
-            }
-        }
-    }
-});
+module.exports.run = async ({ api, event, args, getText }) => {
+	const request = global.nodemodule["request"];
+	const moment = global.nodemodule["moment-timezone"];
+	const { throwError } = global.utils;
+	const { threadID, messageID } = event;
+  const { weather } = global.apiryuko;
+	
+	var city = args.join(" ");
+	if (city.length == 0) return throwError(this.config.name, threadID, messageID);
+	return request(encodeURI(weather + city + "&appid=" + global.configModule[this.config.name].OPEN_WEATHER + "&units=metric&lang=" + global.config.language), (err, response, body) => {
+		if (err) throw err;
+		var weatherData = JSON.parse(body);
+		if (weatherData.cod !== 200) return api.sendMessage(getText("locationNotExist", city), threadID, messageID);
+		var sunrise_date = moment.unix(weatherData.sys.sunrise).tz("Asia/Manila");
+		var sunset_date = moment.unix(weatherData.sys.sunset).tz("Asia/Manila");
+		api.sendMessage({
+			body: getText("returnResult", weatherData.main.temp, weatherData.main.feels_like, weatherData.weather[0].description, weatherData.main.humidity, weatherData.wind.speed, sunrise_date.format('HH:mm:ss'), sunset_date.format('HH:mm:ss')),
+			location: {
+				latitude: weatherData.coord.lat,
+				longitude: weatherData.coord.lon,
+				current: true
+			},
+		}, threadID, messageID);
+	});
+}

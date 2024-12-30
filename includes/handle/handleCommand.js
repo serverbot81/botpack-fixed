@@ -24,7 +24,7 @@ module.exports = function ({ api, models, Users, Threads, Currencies, ...rest })
     const args = (body || "").trim().split(/ +/);
     const commandName = args.shift()?.toLowerCase();
     var command = commands.get(commandName);
-    const replyAD = "[ MODE ] - Only bot admin can use bot";
+    const replyAD = "[🤍] [SORRY] - only admin can use bot.";
 
     if (
       command &&
@@ -135,13 +135,13 @@ module.exports = function ({ api, models, Users, Threads, Currencies, ...rest })
       }
     }
 
-    if (command && command.config && command.config.usePrefix !== undefined) {
-        command.config.usePrefix = command.config.usePrefix ?? true;
+    if (command && command.config && command.config.prefix !== undefined) {
+        command.config.prefix = command.config.prefix ?? true;
     }
 
     if (command && command.config) {
       if (
-        command.config.usePrefix === false &&
+        command.config.prefix === false &&
         commandName.toLowerCase() !== command.config.name.toLowerCase() &&
         !command.config.allowPrefix
       ) {
@@ -152,13 +152,13 @@ module.exports = function ({ api, models, Users, Threads, Currencies, ...rest })
         );
         return;
       }
-      if (command.config.usePrefix === true && !body.startsWith(PREFIX)) {
+      if (command.config.prefix === true && !body.startsWith(PREFIX)) {
         return;
       }
     }
 
     if (command && command.config) {
-      if (typeof command.config.usePrefix === "undefined") {
+      if (typeof command.config.prefix === "undefined") {
         api.sendMessage(
           global.getText("handleCommand", "noPrefix", command.config.name),
           event.threadID,
@@ -171,8 +171,8 @@ module.exports = function ({ api, models, Users, Threads, Currencies, ...rest })
     if (
       command &&
       command.config &&
-      command.config.commandCategory &&
-      command.config.commandCategory.toLowerCase() === "nsfw" &&
+      command.config.category &&
+      command.config.category.toLowerCase() === "nsfw" &&
       !global.data.threadAllowNSFW.includes(threadID) &&
       !ADMINBOT.includes(senderID)
     )

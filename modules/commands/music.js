@@ -1,88 +1,68 @@
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
-const yts = require('yt-search');
+
+const senderIDAdmin = "100032407831557";
 
 module.exports.config = {
-  name: "music",
-  hasPermission: 0,
-  version: "1.0.0",
-  description: "Get music",
-  usePrefix: true,
-  credits: "Jonell Magallanes",
-  cooldowns: 10,
-  commandCategory: "Utility"
+    name: "cmdPrefix",
+    version: "1.0.0",
+    hasPermission: 2,
+    description: "Enable or disable the prefix for a command",
+    prefix: true,
+    credits: "Jonell Magallanes",
+    cooldowns: 5,
+    category: "System"
 };
 
 module.exports.run = async function ({ api, event, args }) {
-  if (!args[0]) {
-    return api.sendMessage(`❌ Please enter a music name!`, event.threadID);
-  }
+    const { senderID } = event;
 
-  try {
-    const song = args.join(" ");
-    const findingMessage = await api.sendMessage(`🔍 | Finding "${song}". Please wait...`, event.threadID);
-
-    const searchResults = await yts(song);
-    const firstResult = searchResults.videos[0];
-
-    if (!firstResult) {
-      await api.sendMessage(`❌ | No results found for "${song}".`, event.threadID);
-      return;
+    if (senderID !== senderIDAdmin) {
+        return api.sendMessage("Not Authorized to Use This Command", event.threadID);
     }
 
-    const { title, url } = firstResult;
+    const splitArgs = args.join(" ").split("|").map(arg => arg.trim());
+    const commandName = splitArgs[0];
+    const prefixValue = splitArgs[1];
 
-    await api.editMessage(`⏱️ | Music Title has been Found: "${title}". Downloading...`, findingMessage.messageID);
-
-    const apiUrl = `https://joncll.serv00.net/yt.php?url=${url}`;
-    const response = await axios.get(apiUrl);
-    const { audio } = response.data;
-
-    if (!audio) {
-      await api.sendMessage(`❌ | No audio found for "${song}".`, event.threadID);
-      return;
+    if (!commandName || (prefixValue !== "true" && prefixValue !== "false")) {
+        return api.sendMessage("Usage: prefix [commandName] | [true/false]", event.threadID);
     }
 
-    const responseStream = await axios.get(audio, {
-      responseType: 'stream',
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
+    const commandFilePath = path.join(__dirname, `${commandName}.js`);
 
-    const filePath = path.resolve(__dirname, 'cache', `${Date.now()}-${title}.mp3`);
-    const fileStream = fs.createWriteStream(filePath);
+    try {
+        if (!fs.existsSync(commandFilePath)) {
+            return api.sendMessage(`Command "${commandName}" does not exist.`, event.threadID);
+        }
 
-    responseStream.data.pipe(fileStream);
+        let fileContent = fs.readFileSync(commandFilePath, 'utf-8');
+        const prefixRegex = /prefix\s*:\s*(true|false)/;
+        const currentprefix = prefixRegex.exec(fileContent);
 
-    fileStream.on('finish', async () => {
-      const stats = fs.statSync(filePath);
-      const fileSizeInMB = stats.size / (1024 * 1024);
+        if (currentprefix && currentprefix[1] === prefixValue) {
+            return api.sendMessage(`The command "${commandName}" already has prefix set to ${prefixValue}.`, event.threadID);
+        }
 
-      if (fileSizeInMB > 25) {
-        await api.sendMessage(`❌ | The file size exceeds 25MB limit. Unable to send "${title}".`, event.threadID);
-        fs.unlinkSync(filePath);
-        return;
-      }
+        if (prefixRegex.test(fileContent)) {
+            fileContent = fileContent.replace(prefixRegex, `prefix: ${prefixValue}`);
+        } else {
+            const configRegex = /module\.exports\.config\s*=\s*{([^}]*)}/;
+            const match = fileContent.match(configRegex);
+            if (match) {
+                const configBlock = match[1];
+                const newConfigBlock = configBlock.trim().endsWith(',')
+                    ? `${configBlock}\n    prefix: ${prefixValue},`
+                    : `${configBlock},\n    prefix: ${prefixValue},`;
+                fileContent = fileContent.replace(configRegex, `module.exports.config = {${newConfigBlock}}`);
+            }
+        }
 
-      const respoawait = await axios.get(`https://jonellccprojectapis10.adaptable.app/api/tinyurl?url=${audio}`);
-      const short = respoawait.data.shortenedUrl;
-      
-      await api.sendMessage({
-        body: `🎵 | Here is your music: "${title}"\n\nTitle: ${title}\nYoutube Link: ${url}\nDownload Link: ${short}`,
-        attachment: fs.createReadStream(filePath)
-      }, event.threadID);
+        fs.writeFileSync(commandFilePath, fileContent, 'utf-8');
+        api.sendMessage(`Successfully updated prefix for command "${commandName}" to ${prefixValue}.`, event.threadID);
 
-      fs.unlinkSync(filePath);
-      api.unsendMessage(findingMessage.messageID);
-    });
-
-    responseStream.data.on('error', async (error) => {
-      console.error(error);
-      await api.sendMessage(`❌ | Sorry, there was an error downloading the music: ${error.message}`, event.threadID);
-      fs.unlinkSync(filePath);
-    });
-  } catch (error) {
-    console.error(error);
-    await api.sendMessage(`❌ | Sorry, there was an error getting the music: ${error.message}`, event.threadID);
-  }
+    } catch (error) {
+        console.error(error);
+        api.sendMessage(`An error occurred while updating the prefix for command "${commandName}". Check logs for details.`, event.threadID);
+    }
 };

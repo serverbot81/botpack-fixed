@@ -1,80 +1,209 @@
 module.exports.config = {
   name: "help",
-  version: "1.0.0",
-  hasPermssion: 0,
-  credits: "august",
-  description: "Guide for new users",
-  commandCategory: "system",
-  usages: "/help",
-  hide: true,
-  usePrefix: true,
+  version: "1.0.2",
+  permission: 0,
+  credits: "ryuko",
+  description: "beginner's guide",
+  prefix: true,
+  premium: false,
+  category: "guide",
+  usages: "[Shows Commands]",
   cooldowns: 5,
   envConfig: {
-    autoUnsend: true,
-    delayUnsend: 60
-  }
+		autoUnsend: true,
+		delayUnsend: 60
+	}
 };
 
-const mathSansBold = {
-  A: "𝖠", B: "𝖡", C: "𝖢", D: "𝖣", E: "𝖤", F: "𝖥", G: "𝖦", H: "𝖧", I: "𝖨",
-  J: "𝖩", K: "𝖪", L: "𝖫", M: "𝖬", N: "𝖭", O: "𝖮", P: "𝖯", Q: "𝖰", R: "𝖱",
-  S: "𝖲", T: "𝖳", U: "𝖴", V: "𝖵", W: "𝖶", X: "𝖷", Y: "𝖸", Z: "𝖹", 
-  a: "𝖠", b: "𝖡", c: "𝖢", d: "𝖣", e: "𝖤", f: "𝖥", g: "𝖦", h: "𝖧", i: "𝖨",
-  j: "𝖩", k: "𝖪", l: "𝖫", m: "𝖬", n: "𝖭", o: "𝖮", p: "𝖯", q: "𝖰", r: "𝖱",
-  s: "𝖲", t: "𝖳", u: "𝖴", v: "𝖵", w: "𝖶", x: "𝖷", y: "𝖸", z: "𝖹"
+module.exports.languages = {
+  en: {
+    moduleInfo:
+      "[🤍] Name: %1\n[🤍] Prefix: %2\n\n[🤍] Usage: %4\n[🤍] Category: %5\n[🤍] Cooldowns: %6 second \n[🤍] permission: %7\n\n[🤍] Code By %8.",
+    helpList:
+      `there are %1 commands and %2 categories of ${global.config.BOTNAME} ai.`,
+    user: "user",
+    adminGroup: "group admin",
+    adminBot: "bot admin",
+  },
 };
+
 
 module.exports.handleEvent = function ({ api, event, getText }) {
   const { commands } = global.client;
-  const { threadID, messageID, body } = event;
+  const { threadID, messageID, body } = event;  
 
-  if (!body || typeof body == "undefined" || body.indexOf("commands") != 0) return;
-  const splitBody = body.slice(body.indexOf("commands")).trim().split(/\s+/);
+  if (!body || typeof body == "undefined" || body.indexOf("help") != 0)
+    return;
+  const splitBody = body.slice(body.indexOf("help")).trim().split(/\s+/);
   if (splitBody.length == 1 || !commands.has(splitBody[1].toLowerCase())) return;
   const threadSetting = global.data.threadData.get(parseInt(threadID)) || {};
   const command = commands.get(splitBody[1].toLowerCase());
-  const prefix = (threadSetting.hasOwnProperty("PREFIX")) ? threadSetting.PREFIX : global.config.PREFIX;
-  return api.sendMessage(getText("moduleInfo", command.config.name, command.config.description, `${prefix}${command.config.name} ${(command.config.usages) ? command.config.usages : ""}`, command.config.commandCategory, command.config.cooldowns, ((command.config.hasPermission == 0) ? getText("user") : (command.config.hasPermission == 1) ? getText("adminGroup") : getText("adminBot")), command.config.credits), threadID, messageID);
+  const prefix = threadSetting.hasOwnProperty("PREFIX")
+    ? threadSetting.PREFIX
+    : global.config.PREFIX;
+  return api.sendMessage(
+    getText(
+      "moduleInfo",
+      command.config.name,
+      command.config.prefix,
+      command.config.description,
+      `${prefix}${command.config.name} ${
+        command.config.usages ? command.config.usages : ""
+      }`,
+      command.config.category,
+      command.config.cooldowns,
+      command.config.permission === 0
+        ? getText("user")
+        : command.config.permission === 1
+        ? getText("adminGroup")
+        : getText("adminBot"),
+      command.config.credits
+    ),
+    threadID,
+    messageID
+  );
 };
 
-module.exports.run = async function ({ api, event, args }) {
-  const uid = event.senderID;
-  const userName = (await api.getUserInfo(uid))[uid].name;
-
+module.exports.run = async function ({ api, event, args, getText }) {
   const { commands } = global.client;
   const { threadID, messageID } = event;
+  const command = commands.get((args[0] || "").toLowerCase());
   const threadSetting = global.data.threadData.get(parseInt(threadID)) || {};
   const { autoUnsend, delayUnsend } = global.configModule[this.config.name];
-  const prefix = (threadSetting.hasOwnProperty("PREFIX")) ? threadSetting.PREFIX : global.config.PREFIX;
+  const prefix = threadSetting.hasOwnProperty("PREFIX")
+    ? threadSetting.PREFIX
+    : global.config.PREFIX;
 
-  const categories = new Set();
-  const categorizedCommands = new Map();
+  if (!command) {
+    const commandList = Array.from(commands.values());
+    const categories = new Set(commandList.map((cmd) => cmd.config.category.toLowerCase()));
+    const categoryCount = categories.size;
 
-  for (const [name, value] of commands) {
-    if (value.config.hide) continue; // Skip hidden commands
-    const categoryName = value.config.commandCategory;
-    if (!categories.has(categoryName)) {
-      categories.add(categoryName);
-      categorizedCommands.set(categoryName, []);
+    const categoryNames = Array.from(categories);
+    const itemsPerPage = 10;
+    const totalPages = Math.ceil(categoryNames.length / itemsPerPage);
+
+    let currentPage = 1;
+    if (args[0]) {
+      const parsedPage = parseInt(args[0]);
+      if (
+        !isNaN(parsedPage) &&
+        parsedPage >= 1 &&
+        parsedPage <= totalPages
+      ) {
+        currentPage = parsedPage;
+      } else {
+        return api.sendMessage(
+          `oops, you went too far. please choose a page between 1 and ${totalPages}.`,
+          threadID,
+          messageID
+        );
+      }
     }
-    categorizedCommands.get(categoryName).push(`│ ✧ ${value.config.name}`);
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = startIdx + itemsPerPage;
+    const visibleCategories = categoryNames.slice(startIdx, endIdx);
+
+    let msg = "";
+    for (let i = 0; i < visibleCategories.length; i++) {
+      const category = visibleCategories[i];
+      const categoryCommands = commandList.filter(
+        (cmd) =>
+          cmd.config.category.toLowerCase() === category
+      );
+      const commandNames = categoryCommands.map((cmd) => cmd.config.name);
+      const numberFont = [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+      ];
+      msg += `${
+        category.charAt(0).toLowerCase() + category.slice(1)
+      } category :\n\n${commandNames.join("\n")}\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n`;
+    }
+    const numberFontPage = [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+    ];
+    msg += `page ${numberFontPage[currentPage - 1]} of ${
+      numberFontPage[totalPages - 1]
+    }\n\n`;
+    msg += getText("helpList", commands.size, categoryCount, prefix);
+
+    const axios = require("axios");
+    const fs = require("fs-extra");
+    const imgP = [];
+    const img = [
+      "https://i.ibb.co/ZLnvPwQ/Picsart-23-07-24-11-03-50-602.png"
+    ];
+    const path = __dirname + "/cache/menu.png";
+    const rdimg = img[Math.floor(Math.random() * img.length)];
+
+    const { data } = await axios.get(rdimg, {
+      responseType: "arraybuffer",
+    });
+
+    fs.writeFileSync(path, Buffer.from(data, "utf-8"));
+    imgP.push(fs.createReadStream(path));
+    const msgg = {
+  body: `existing commands and categories\n\nhere's the categories and commands of ${global.config.BOTNAME} ai ;\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n` + msg + `\n\n`
+    };
+
+    const sentMessage = await api.sendMessage(msgg, threadID, async (error, info) => {
+			if (autoUnsend) {
+				await new Promise(resolve => setTimeout(resolve, delayUnsend * 500));
+				return api.unsendMessage(info.messageID);
+			} else return;
+		}, messageID);
+  } else {
+    return api.sendMessage(
+      getText(
+        "moduleInfo",
+        command.config.name,
+	command.config.prefix,
+        command.config.description,
+        `${prefix}${command.config.name} ${
+          command.config.usages ? command.config.usages : ""
+        }`,
+        command.config.category,
+        command.config.cooldowns,
+        command.config.permission === 0
+          ? getText("user")
+          : command.config.permission === 1
+          ? getText("adminGroup")
+          : getText("adminBot"),
+        command.config.credits
+      ),
+      threadID, async (error, info) => {
+			if (autoUnsend) {
+				await new Promise(resolve => setTimeout(resolve, delayUnsend * 500));
+				return api.unsendMessage(info.messageID);
+			} else return;
+		}, messageID);
   }
-
-  let msg = `𝖧𝖾𝗒 ${userName}, 𝗍𝗁𝖾𝗌𝖾 𝖺𝗋𝖾 𝖼𝗈𝗆𝗆𝖺𝗇𝖽𝗌 𝗍𝗁𝖺𝗍 𝗆𝖺𝗒 𝗁𝖾𝗅𝗉 𝗒𝗈𝗎:\n\n`;
-
-  for (const categoryName of categories) {
-    const categoryNameSansBold = categoryName.split("").map(c => mathSansBold[c] || c).join("");
-    msg += `╭─❍「 ${categoryNameSansBold} 」\n`;
-    msg += categorizedCommands.get(categoryName).join("\n");
-    msg += "\n╰───────────⟡\n";
-  }
-
-  msg += `├─────☾⋆\n│ » Total commands: [ ${commands.size} ]\n│「 ☾⋆ PREFIX: ${global.config.PREFIX} 」\n╰───────────⟡`;
-
-  return api.shareContact(msg, api.getCurrentUserID(), threadID, async (error, info) => {
-    if (autoUnsend) {
-      await new Promise(resolve => setTimeout(resolve, delayUnsend * 60000));
-      return api.unsendMessage(info.messageID);
-    } else return;
-  });
 };
